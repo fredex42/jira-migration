@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/fredex42/mm-jira-migration/common"
 	"io"
 	"io/ioutil"
@@ -119,7 +120,10 @@ func main() {
 			log.Printf("ERROR: %s", err)
 			os.Exit(1)
 		case rec, moreContent := <-contentCh:
-			log.Printf("INFO: Got record %v", rec)
+			if rec.Fields.EpicLink != nil {
+				spew.Dump(rec)
+				//log.Printf("INFO: Got record %v", rec)
+			}
 			if !moreContent {
 				return
 			}

@@ -29,6 +29,8 @@ type IssueFields struct {
 	Summary      string        `json:"summary"`
 	Description  JiraContent   `json:"description"`
 	Attachment   []Attachment  `json:"attachment"`
+	DueDate      *string       `json:"duedate"`
+	EpicLink     *string       `json:"customfield_10014"` //catchy name, huh? the id is unique to our jira *sigh*
 }
 
 type Attachment struct {
