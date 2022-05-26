@@ -28,7 +28,17 @@ type IssueFields struct {
 	IssueType    IssueType     `json:"issuetype"`
 	Summary      string        `json:"summary"`
 	Description  JiraContent   `json:"description"`
-	Attachment   []string      `json:"attachment"` //TBC schema
+	Attachment   []Attachment  `json:"attachment"`
+}
+
+type Attachment struct {
+	Id       string   `json:"id"`
+	Filename string   `json:"filename"`
+	Author   JiraUser `json:"author"`
+	Created  string   `json:"created"` //ISO timestamp with +nnnn zone
+	Size     int64    `json:"size"`
+	MimeType string   `json:"mimeType"`
+	Content  string   `json:"content"` //URL of the attachment
 }
 
 type IssuePriority struct {
