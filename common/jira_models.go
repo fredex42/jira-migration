@@ -1,5 +1,10 @@
 package common
 
+import (
+	"log"
+	"regexp"
+)
+
 type PagedIssues struct {
 	Expand     string  `json:"expand"`
 	StartAt    int64   `json:"startAt"`
@@ -20,7 +25,7 @@ type IssueFields struct {
 	Parent       *Issue        `json:"parent"` //reference to parent issue, if this is a subtask
 	Priority     IssuePriority `json:"priority"`
 	Labels       []string      `json:"labels"` //TBC schema
-	TimeEstimate *string       `json:"timeestimate"`
+	TimeEstimate *int64        `json:"timeestimate"`
 	Status       IssueStatus   `json:"status"`
 	Creator      JiraUser      `json:"creator"`
 	Subtasks     []Issue       `json:"subTasks"`
@@ -31,6 +36,59 @@ type IssueFields struct {
 	Attachment   []Attachment  `json:"attachment"`
 	DueDate      *string       `json:"duedate"`
 	EpicLink     *string       `json:"customfield_10014"` //catchy name, huh? the id is unique to our jira *sigh*
+	EpicName     *string       `json:"customfield_10011"` //only set on epics
+	EpicColour   *string       `json:"customfield_10013"` //only set on epics. Use the decoding function to get a "sensible" colour name
+}
+
+/*
+TranslateEpicColour uses information from https://jira.atlassian.com/browse/JRACLOUD-59765 to translate an ID
+in the form ghx-label-nnn to a 'normal' colour name and returns it as a string.
+String can be empty if EpicColour is not set.
+*/
+func (i IssueFields) TranslateEpicColour() string {
+	if i.EpicColour == nil {
+		return ""
+	} else {
+		xtractor := regexp.MustCompile("ghx-label-(\\d+)")
+		parts := xtractor.FindAllStringSubmatch(*i.EpicColour, -1)
+		if parts == nil {
+			log.Printf("ERROR Can't translate epic colour '%s' as the format is not ghx-label-nnn", *i.EpicColour)
+			return ""
+		} else {
+			switch parts[0][1] { //the extracted number
+			case "1":
+				return "black"
+			case "2":
+				return "yellow"
+			case "14":
+				return "orange"
+			case "8":
+				return "purple"
+			case "4":
+				return "blue"
+			case "5":
+				return "turquoise"
+			case "13":
+				return "green"
+			case "12":
+				return "gray"
+			case "3":
+				return "lightyellow"
+			case "9":
+				return "lightorange"
+			case "7":
+				return "lightpurple"
+			case "10":
+				return "lightblue"
+			case "11":
+				return "lightturquoise"
+			case "6":
+				return "lightgreen"
+			default:
+				return ""
+			}
+		}
+	}
 }
 
 type Attachment struct {
