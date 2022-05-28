@@ -59,6 +59,7 @@ func LoadIssues(hostname string, key *ScriptKey, startAt int, pageSize int, mayb
 
 	switch response.StatusCode {
 	case 200:
+		//writeDodgyContent(fmt.Sprintf("content-%d.json", startAt/pageSize), &bodyContent)
 		err = json.Unmarshal(bodyContent, &issues)
 		if err != nil {
 			log.Printf("Unmarshalling error. Invalid content is being written to 'dodgy.json' ")

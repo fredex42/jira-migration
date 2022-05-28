@@ -19,12 +19,6 @@ func main() {
 		log.Fatalf("Could not open scripting key '%s': %s", *keyPath, err)
 	}
 
-	//content, err := LoadIssues(*hostname, key)
-	//if err != nil {
-	//	log.Fatal("Could not load content: ", err)
-	//}
-	//spew.Dump(content)
-
 	contentCh, errCh := common.AsyncLoadAllIssues(*hostname, key, *pageSize)
 	for {
 		select {
@@ -36,7 +30,12 @@ func main() {
 			//	spew.Dump(rec)
 			//	//log.Printf("INFO: Got record %v", rec)
 			//}
-			spew.Dump(rec)
+			if rec.Fields.Status.Name == "Done" { //don't bother importing over stuff marked as 'Done'
+				continue
+			}
+			if rec.Fields.SprintLink != nil {
+				spew.Dump(rec)
+			}
 			if !moreContent {
 				return
 			}

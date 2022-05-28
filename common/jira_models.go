@@ -38,6 +38,24 @@ type IssueFields struct {
 	EpicLink     *string       `json:"customfield_10014"` //catchy name, huh? the id is unique to our jira *sigh*
 	EpicName     *string       `json:"customfield_10011"` //only set on epics
 	EpicColour   *string       `json:"customfield_10013"` //only set on epics. Use the decoding function to get a "sensible" colour name
+	SprintLink   *[]SprintLink `json:"customfield_10020"`
+}
+
+/*
+   {
+     "id": 155,
+     "name": "GNM Backlog (To be continued..",
+     "state": "future",
+     "boardId": 31,
+     "goal": ""
+   }
+*/
+type SprintLink struct {
+	Id      int64   `json:"id"`
+	Name    string  `json:"name"`
+	State   *string `json:"state"`
+	BoardId int64   `json:"boardId"`
+	Goal    *string `json:"goal"`
 }
 
 /*
