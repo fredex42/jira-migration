@@ -25,7 +25,7 @@ func main() {
 	//}
 	//spew.Dump(content)
 
-	contentCh, errCh := common.AsyncLoadAllEpics(*hostname, key, *pageSize)
+	contentCh, errCh := common.AsyncLoadAllIssues(*hostname, key, *pageSize)
 	for {
 		select {
 		case err := <-errCh:
