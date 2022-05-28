@@ -46,6 +46,10 @@ in the form ghx-label-nnn to a 'normal' colour name and returns it as a string.
 String can be empty if EpicColour is not set.
 */
 func (i IssueFields) TranslateEpicColour() string {
+	/*
+		pink , yellow , lime , blue , black , orange , red , purple , sky , green
+	*/
+
 	if i.EpicColour == nil {
 		return ""
 	} else {
@@ -67,23 +71,23 @@ func (i IssueFields) TranslateEpicColour() string {
 			case "4":
 				return "blue"
 			case "5":
-				return "turquoise"
+				return "lime"
 			case "13":
 				return "green"
 			case "12":
-				return "gray"
+				return "black"
 			case "3":
-				return "lightyellow"
+				return "yellow"
 			case "9":
-				return "lightorange"
+				return "pink"
 			case "7":
-				return "lightpurple"
+				return "purple"
 			case "10":
-				return "lightblue"
+				return "sky"
 			case "11":
-				return "lightturquoise"
+				return "sky"
 			case "6":
-				return "lightgreen"
+				return "lime"
 			default:
 				return ""
 			}

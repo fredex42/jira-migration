@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/fredex42/mm-jira-migration/common"
+	"github.com/fredex42/mm-jira-migration/trello"
 	"log"
 )
 
@@ -29,7 +30,7 @@ func main() {
 		log.Fatal("ERROR Could not load in epics: ", err)
 	}
 
-	fieldContent, err := common.SetupEpicsField(*boardId, *customFieldName, &epicsList, trelloKey)
+	fieldContent, err := trello.SetupEpicsField(*boardId, *customFieldName, &epicsList, trelloKey)
 	if err != nil {
 		log.Fatal("ERROR Could not upload content to Trello: ", err)
 	}
