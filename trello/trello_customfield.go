@@ -14,7 +14,9 @@ import (
 	"strings"
 )
 
-func LoadAllCustomFields(boardId string, apiKey *common.ScriptKey, httpClient *http.Client) (*map[string]common.TrelloCustomField, error) {
+type CustomFieldCache map[string]common.TrelloCustomField
+
+func LoadAllCustomFields(boardId string, apiKey *common.ScriptKey, httpClient *http.Client) (*CustomFieldCache, error) {
 	uri := fmt.Sprintf("https://api.trello.com/1/boards/%s/customFields?key=%s&token=%s", boardId, apiKey.User, apiKey.Key)
 	response, err := httpClient.Get(uri)
 	if err != nil {
@@ -31,7 +33,7 @@ func LoadAllCustomFields(boardId string, apiKey *common.ScriptKey, httpClient *h
 			log.Printf("ERROR LoadAllCustomFields could not understand server response: %s", err)
 			return nil, err
 		}
-		output := make(map[string]common.TrelloCustomField, len(customFieldList))
+		output := make(CustomFieldCache, len(customFieldList))
 		for _, f := range customFieldList {
 			output[f.Name] = f
 		}

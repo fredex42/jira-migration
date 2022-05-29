@@ -13,10 +13,10 @@ func (content *JiraContent) toTextBlock() string {
 }
 
 /*
-Create a new trello card request from the given issue.
+ToTrelloCard will create a new trello card request from the given issue.
 Note that this does NOT bring over any attachments - that must be done seperately
 */
-func (issue *Issue) toTrelloCard(inList string, putToTop bool) *NewTrelloCard {
+func (issue *Issue) ToTrelloCard(inList string, putToTop bool) *NewTrelloCard {
 	newPos := TrelloPositionBottom
 	if putToTop {
 		newPos = TrelloPositionTop
