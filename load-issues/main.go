@@ -78,9 +78,10 @@ func main() {
 			if rec.Fields.Status.Name == "Done" { //don't bother importing over stuff marked as 'Done'
 				continue
 			}
-			if rec.Fields.EpicLink == nil { //testing - only stuff with epic links
+			if len(rec.Fields.Attachment) < 1 { //testing - only interested in stuff with attachments
 				continue
 			}
+
 			recPtr := &rec
 
 			//get a base trello card
@@ -92,6 +93,11 @@ func main() {
 				return //bail on error
 			}
 
+			//if there are attachments, copy them over
+			err = HandleAttachments(&rec.Fields.Attachment, createdCard.Id, hostname, jira, trelloKey, httpClient)
+			if err != nil {
+				log.Printf("ERROR Could not fix attachments for '%s': %s", recPtr.Fields.Summary, err)
+			}
 			//if there is an epic link, find the custom field value corresponding and set it
 			if rec.Fields.EpicLink != nil {
 				log.Printf("INFO Issue '%s' has a link to epic '%s'", recPtr.Fields.Summary, *rec.Fields.EpicLink)
