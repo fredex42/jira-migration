@@ -215,9 +215,6 @@ func main() {
 			if rec.Fields.Status.Name == "Done" { //don't bother importing over stuff marked as 'Done'
 				continue
 			}
-			if len(rec.Fields.Attachment) < 1 { //testing - only interested in stuff with attachments
-				continue
-			}
 
 			err := MigrateIssue(&rec, hostname, &defaultListId, &epicLinkField, &priorityField, epics, &jiraIdField, jira, trelloKey, httpClient)
 			if err != nil {
@@ -225,11 +222,9 @@ func main() {
 			}
 
 			ctr++
-			if ctr > 3 {
-				log.Printf("INFO Early exit for debugging")
-				return
-			}
+
 			if !moreContent {
+				log.Printf("Job completed! Migrated %d issues over", ctr)
 				return
 			}
 		}
