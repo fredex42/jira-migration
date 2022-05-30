@@ -95,7 +95,6 @@ func AsyncLoadIssuesJQL(hostname string, key *ScriptKey, pageSize int, maybeQuer
 			if int64(ctr) >= pageData.Total {
 				log.Printf("INFO Iterated a total of %d issues, completed", ctr)
 				close(outCh)
-				close(errCh)
 				return
 			}
 		}
@@ -109,7 +108,7 @@ func AsyncLoadAllIssues(hostname string, key *ScriptKey, pageSize int) (chan Iss
 }
 
 func AsyncLoadAllEpics(hostname string, key *ScriptKey, pageSize int) (chan Issue, chan error) {
-	return AsyncLoadIssuesJQL(hostname, key, pageSize, "issueType=epic")
+	return AsyncLoadIssuesJQL(hostname, key, pageSize, "issueType=Epic")
 }
 
 func SyncLoadAllEpics(hostname string, key *ScriptKey, pageSize int) ([]Issue, error) {
@@ -120,6 +119,7 @@ func SyncLoadAllEpics(hostname string, key *ScriptKey, pageSize int) ([]Issue, e
 		select {
 		case rec, moreContent := <-outputCh:
 			result = append(result, rec)
+
 			if !moreContent {
 				return result, nil
 			}

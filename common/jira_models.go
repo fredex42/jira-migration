@@ -1,6 +1,8 @@
 package common
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"regexp"
 )
@@ -41,15 +43,9 @@ type IssueFields struct {
 	SprintLink   *[]SprintLink `json:"customfield_10020"`
 }
 
-/*
-   {
-     "id": 155,
-     "name": "GNM Backlog (To be continued..",
-     "state": "future",
-     "boardId": 31,
-     "goal": ""
-   }
-*/
+//func (i IssueFields) ToTrelloEpicId(optionsList *[]TrelloCustomFieldOption) string {
+//
+//}
 type SprintLink struct {
 	Id      int64   `json:"id"`
 	Name    string  `json:"name"`
@@ -128,6 +124,36 @@ type IssuePriority struct {
 	IconUrl string `json:"iconUrl"`
 	Name    string `json:"name"`
 	Id      string `json:"id"`
+}
+
+/*
+ToTrelloLabel will return the corresponding ID within the given TrelloCustomFieldOption list for the priority
+contained in this object
+*/
+func (i IssuePriority) ToTrelloLabel(optionsList *[]TrelloCustomFieldOption) (string, error) {
+	stringName := func() string {
+		switch i.Id {
+		case "1":
+			return "Highest"
+		case "2":
+			return "High"
+		case "3":
+			return "Medium"
+		case "4":
+			return "Low"
+		case "5":
+			return "Lowest"
+		default:
+			return "Not sure"
+		}
+	}()
+
+	for _, opt := range *optionsList {
+		if opt.Value.Text == stringName {
+			return opt.Id, nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("there is no custom field value matching '%s'", stringName))
 }
 
 type IssueStatus struct {
