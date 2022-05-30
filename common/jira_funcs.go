@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
+	"time"
 )
 
 /*
@@ -30,6 +32,57 @@ func writeDodgyContent(toFileName string, buffer *[]byte) error {
 		return err
 	}
 	return nil
+}
+
+func loadCommentsPage(hostname string, issueId string, key *ScriptKey, startAt int64, pageSize int32, httpClient *http.Client) (*[]Comment, int64, error) {
+	uri := fmt.Sprintf("https://%s/rest/api/3/issue/%s/comment", hostname, issueId)
+	req, err := http.NewRequest("GET", uri, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	req.SetBasicAuth(key.User, key.Key)
+
+	response, err := httpClient.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	responseContent, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	log.Printf("%s", string(responseContent))
+	var result PageOfComments
+	err = json.Unmarshal(responseContent, &result)
+	if err != nil {
+		return nil, 0, err
+	}
+	return &result.Comments, result.Total, nil
+}
+
+func LoadAllComments(hostname string, issueId string, key *ScriptKey, pageSize int32, httpClient *http.Client) (*[]Comment, error) {
+	ctr := int64(0)
+	result := make([]Comment, 0)
+
+	for {
+		comments, total, err := loadCommentsPage(hostname, issueId, key, ctr, pageSize, httpClient)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *comments...)
+		ctr += int64(len(*comments))
+		if ctr >= total {
+			log.Printf("INFO Retrieved %d comments for issue id %s", ctr, issueId)
+			break
+		}
+	}
+
+	sort.SliceStable(result, func(i, j int) bool {
+		firstTime, _ := time.Parse(JiraTimeFormat, result[i].Created)
+		secondTime, _ := time.Parse(JiraTimeFormat, result[j].Created)
+		return firstTime.Before(secondTime)
+	})
+	return &result, nil
 }
 
 func LoadIssues(hostname string, key *ScriptKey, startAt int, pageSize int, maybeQuery string, httpClient *http.Client) (*PagedIssues, error) {

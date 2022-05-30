@@ -1,6 +1,6 @@
 package common
 
-func (content *JiraContent) toTextBlock() string {
+func (content *JiraContent) ToTextBlock() string {
 	accumulator := ""
 
 	for _, block := range content.Content {
@@ -33,7 +33,7 @@ func (issue *Issue) ToTrelloCard(inList string, putToTop bool) *NewTrelloCard {
 	return &NewTrelloCard{
 		ListId:      inList,
 		Name:        issue.Fields.Summary,
-		Description: (&(issue.Fields.Description)).toTextBlock(),
+		Description: (&(issue.Fields.Description)).ToTextBlock(),
 		Position:    newPos,
 		DueDate:     issue.Fields.DueDate,
 		Start:       nil,

@@ -93,20 +93,43 @@ func MigrateIssue(recPtr *common.Issue,
 	}
 
 	//now need to migrate all other comments
+	existingComments, err := common.LoadAllComments(*hostname, recPtr.Key, jira, 20, httpClient)
+	if err != nil {
+		log.Printf("ERROR Can't load comments for '%s': %s", recPtr.Fields.Summary, err)
+		return errors.New("can't migrate issue")
+	}
+
+	for _, c := range *existingComments {
+		createdTime, err := time.Parse(common.JiraTimeFormat, c.Created)
+		var createdTimeString string
+
+		if err != nil {
+			log.Printf("ERROR Can't parse time %s: %s", c.Created, err)
+			createdTimeString = c.Created
+		} else {
+			createdTimeString = createdTime.Format(time.RFC1123)
+		}
+
+		newComment := fmt.Sprintf("%s\n-----\nOriginally by %s on %s", c.Body.ToTextBlock(), c.Author.DisplayName, createdTimeString)
+		err = trello.AddComment(createdCard.Id, newComment, trelloKey, httpClient)
+		if err != nil {
+			log.Printf("ERROR Could not add comment to card '%s': %s", createdCard.Id, err)
+			return errors.New("can't migrate issue")
+		}
+	}
 
 	//set a comment showing where this came from and when
-	creationTime, parseErr := time.Parse("2006-01-02T15:04:05.000-0700", recPtr.Fields.Created)
-	creationTimeString := "unparseable"
+	creationTime, parseErr := time.Parse(common.JiraTimeFormat, recPtr.Fields.Created)
+	creationTimeString := recPtr.Fields.Created
 	if parseErr != nil {
 		log.Printf("WARNING Can't parse time '%s': %s", recPtr.Fields.Created, parseErr)
 	} else {
 		creationTimeString = creationTime.Format(time.RFC1123)
 	}
 
-	newComment := fmt.Sprintf(`This card was originally reported in Jira by %s on %s (%s) as issue %s`,
-		recPtr.Fields.Reporter.DisplayName,
-		recPtr.Fields.Created,
+	newComment := fmt.Sprintf(`This card was originally reported on %s by %s as issue %s`,
 		creationTimeString,
+		recPtr.Fields.Reporter.DisplayName,
 		recPtr.Key,
 	)
 	err = trello.AddComment(createdCard.Id, newComment, trelloKey, httpClient)

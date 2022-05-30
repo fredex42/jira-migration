@@ -7,6 +7,8 @@ import (
 	"regexp"
 )
 
+const JiraTimeFormat = "2006-01-02T15:04:05.000-0700"
+
 type PagedIssues struct {
 	Expand     string  `json:"expand"`
 	StartAt    int64   `json:"startAt"`
@@ -196,4 +198,20 @@ type JiraContentBlock struct {
 type JiraContentLine struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
+}
+
+type PageOfComments struct {
+	StartAt    int64     `json:"startAt"`
+	MaxResults int32     `json:"maxResults"`
+	Total      int64     `json:"total"`
+	Comments   []Comment `json:"comments"`
+}
+
+type Comment struct {
+	Self    string      `json:"self"`
+	Id      string      `json:"id"`
+	Author  JiraUser    `json:"author"`
+	Body    JiraContent `json:"body"`
+	Created string      `json:"created"`
+	Updated string      `json:"updated"`
 }
