@@ -30,6 +30,7 @@ type IssueFields struct {
 	TimeEstimate *int64        `json:"timeestimate"`
 	Status       IssueStatus   `json:"status"`
 	Creator      JiraUser      `json:"creator"`
+	Created      string        `json:"created"`
 	Subtasks     []Issue       `json:"subTasks"`
 	Reporter     JiraUser      `json:"reporter"`
 	IssueType    IssueType     `json:"issuetype"`

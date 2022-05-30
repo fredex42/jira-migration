@@ -1,13 +1,121 @@
 package main
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"github.com/fredex42/mm-jira-migration/common"
 	"github.com/fredex42/mm-jira-migration/trello"
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
+
+/*
+MakeEpicLink sets the custom field on a created trello card to the epic's value.
+Assumes that recPtr.Fields.EpicLink != nil, will abort if this is not the case.
+*/
+func MakeEpicLink(recPtr *common.Issue, cardId string, epics *EpicsCache, epicLinkField *common.TrelloCustomField, trelloKey *common.ScriptKey, httpClient *http.Client) error {
+	log.Printf("INFO Issue '%s' has a link to epic '%s'", recPtr.Fields.Summary, *recPtr.Fields.EpicLink)
+
+	epicName, haveEpic := epics.KnownEpics[*(recPtr.Fields.EpicLink)]
+	if !haveEpic {
+		log.Printf("ERROR Could not find an epic for '%s'", *(recPtr.Fields.EpicLink))
+		return errors.New("could not create epic link")
+	}
+
+	epicId, err := epicLinkField.FindInCustomField(epicName)
+	if err != nil {
+		log.Printf("ERROR Could not find an entry for epic '%s' %s: %s", *recPtr.Fields.EpicLink, epicName, err)
+		return errors.New("could not create epic link")
+	}
+
+	err = trello.SetCustomFieldValue(cardId, epicLinkField.Id, epicId.Id, trelloKey, httpClient) //should use TrelloCustomFieldOptionValue as k-v i think. https://developer.atlassian.com/cloud/trello/rest/api-group-cards/#api-cards-idcard-customfield-idcustomfield-item-put
+	if err != nil {
+		log.Printf("ERROR Could not set up custom epics info field for '%s': %s", recPtr.Fields.Summary, err)
+		return errors.New("could not create epic link")
+	}
+	return nil
+}
+
+func MigrateIssue(recPtr *common.Issue,
+	hostname *string,
+	defaultList *common.TrelloList,
+	epicLinkField *common.TrelloCustomField,
+	priorityField *common.TrelloCustomField,
+	epics *EpicsCache,
+	jiraIdField *common.TrelloCustomField,
+	jira *common.ScriptKey,
+	trelloKey *common.ScriptKey,
+	httpClient *http.Client,
+) error {
+	//get a base trello card
+	newCard := recPtr.ToTrelloCard(defaultList.Id, false)
+	//write the card and get an ID
+	createdCard, err := trello.PutTrelloCard(newCard, trelloKey, httpClient)
+	if err != nil {
+		log.Printf("ERROR Could not create a card for '%s': %s", recPtr.Fields.Summary, err)
+		return errors.New("can't migrate issue")
+	}
+
+	err = trello.SetCustomFieldText(createdCard.Id, jiraIdField.Id, recPtr.Key, trelloKey, httpClient)
+	if err != nil {
+		log.Printf("ERROR Could not add jira key for '%s': %s", recPtr.Fields.Summary, err)
+		return errors.New("can't migrate issue")
+	}
+
+	//if there are attachments, copy them over
+	err = HandleAttachments(&recPtr.Fields.Attachment, createdCard.Id, hostname, jira, trelloKey, httpClient)
+	if err != nil {
+		log.Printf("ERROR Could not fix attachments for '%s': %s", recPtr.Fields.Summary, err)
+		return errors.New("can't migrate issue")
+	}
+	//if there is an epic link, find the custom field value corresponding and set it
+	if recPtr.Fields.EpicLink != nil {
+		err = MakeEpicLink(recPtr, createdCard.Id, epics, epicLinkField, trelloKey, httpClient)
+		if err != nil {
+			return errors.New("can't migrate issue")
+		}
+	}
+
+	//get the priority and set that on a custom field too
+	fieldId, err := recPtr.Fields.Priority.ToTrelloLabel(priorityField.Options)
+	if err != nil {
+		log.Printf("ERROR Could not set up priority for '%s': '%s", recPtr.Fields.Summary, err)
+		return errors.New("can't migrate issue")
+	}
+	err = trello.SetCustomFieldValue(createdCard.Id, priorityField.Id, fieldId, trelloKey, httpClient)
+
+	if err != nil {
+		log.Printf("ERROR Could not set up priority field for '%s': %s", recPtr.Fields.Summary, err)
+		return errors.New("can't migrate issue")
+	}
+
+	//now need to migrate all other comments
+
+	//set a comment showing where this came from and when
+	creationTime, parseErr := time.Parse("2006-01-02T15:04:05.000-0700", recPtr.Fields.Created)
+	creationTimeString := "unparseable"
+	if parseErr != nil {
+		log.Printf("WARNING Can't parse time '%s': %s", recPtr.Fields.Created, parseErr)
+	} else {
+		creationTimeString = creationTime.Format(time.RFC1123)
+	}
+
+	newComment := fmt.Sprintf(`This card was originally reported in Jira by %s on %s (%s) as issue %s`,
+		recPtr.Fields.Reporter.DisplayName,
+		recPtr.Fields.Created,
+		creationTimeString,
+		recPtr.Key,
+	)
+	err = trello.AddComment(createdCard.Id, newComment, trelloKey, httpClient)
+	if err != nil {
+		log.Printf("ERROR Could not add comment to card '%s': %s", createdCard.Id, err)
+		return errors.New("can't migrate issue")
+	}
+	return nil
+}
 
 func main() {
 	jiraKeyPath := flag.String("jira", "scriptkey.yaml", "Path to a file containing a Jira API key")
@@ -17,6 +125,7 @@ func main() {
 	trelloBoard := flag.String("board", "", "Board ID to push data into")
 	defaultList := flag.String("defaultlist", "", "Name of the list to push cards into by default")
 	epicLinkFieldName := flag.String("epicfield", "Components", "Name of the custom field to hold epics information")
+	jiraIdFieldName := flag.String("jira-id", "Jira Key", "Name of the custom field to hold the jira ID")
 	flag.Parse()
 
 	httpClient := http.DefaultClient
@@ -53,6 +162,11 @@ func main() {
 		log.Fatalf("Could not find any custom field matching '%s' for epics information", *epicLinkFieldName)
 	}
 
+	jiraIdField, haveJiraIdField := (*customFieldCache)[*jiraIdFieldName]
+	if !haveJiraIdField {
+		log.Fatalf("Could not find any custom field matching '%s' for jira key information", *jiraIdFieldName)
+	}
+
 	priorityField, havePriorityField := (*customFieldCache)["Priority"]
 	if !havePriorityField {
 		log.Fatal("Could not find any custom field matching 'Priority' for priority information")
@@ -82,56 +196,9 @@ func main() {
 				continue
 			}
 
-			recPtr := &rec
-
-			//get a base trello card
-			newCard := recPtr.ToTrelloCard(defaultListId.Id, false)
-			//write the card and get an ID
-			createdCard, err := trello.PutTrelloCard(newCard, trelloKey, httpClient)
+			err := MigrateIssue(&rec, hostname, &defaultListId, &epicLinkField, &priorityField, epics, &jiraIdField, jira, trelloKey, httpClient)
 			if err != nil {
-				log.Printf("ERROR Could not create a card for '%s': %s", recPtr.Fields.Summary, err)
-				return //bail on error
-			}
-
-			//if there are attachments, copy them over
-			err = HandleAttachments(&rec.Fields.Attachment, createdCard.Id, hostname, jira, trelloKey, httpClient)
-			if err != nil {
-				log.Printf("ERROR Could not fix attachments for '%s': %s", recPtr.Fields.Summary, err)
-			}
-			//if there is an epic link, find the custom field value corresponding and set it
-			if rec.Fields.EpicLink != nil {
-				log.Printf("INFO Issue '%s' has a link to epic '%s'", recPtr.Fields.Summary, *rec.Fields.EpicLink)
-
-				epicName, haveEpic := epics.KnownEpics[*rec.Fields.EpicLink]
-				if !haveEpic {
-					log.Printf("ERROR Could not find an epic for '%s'", *rec.Fields.EpicLink)
-					return
-				}
-
-				epicId, err := epicLinkField.FindInCustomField(epicName)
-				if err != nil {
-					log.Printf("ERROR Could not find an entry for epic '%s' %s: %s", *rec.Fields.EpicLink, epicName, err)
-					return
-				}
-
-				err = trello.SetCustomFieldValue(createdCard.Id, epicLinkField.Id, epicId.Id, trelloKey, httpClient) //should use TrelloCustomFieldOptionValue as k-v i think. https://developer.atlassian.com/cloud/trello/rest/api-group-cards/#api-cards-idcard-customfield-idcustomfield-item-put
-				if err != nil {
-					log.Printf("ERROR Could not set up custom epics info field for '%s': %s", recPtr.Fields.Summary, err)
-					return
-				}
-			}
-
-			//get the priority and set that on a custom field too
-			fieldId, err := rec.Fields.Priority.ToTrelloLabel(priorityField.Options)
-			if err != nil {
-				log.Printf("ERROR Could not set up priority for '%s': '%s", recPtr.Fields.Summary, err)
-				return
-			}
-			err = trello.SetCustomFieldValue(createdCard.Id, priorityField.Id, fieldId, trelloKey, httpClient)
-
-			if err != nil {
-				log.Printf("ERROR Could not set up priority field for '%s': %s", recPtr.Fields.Summary, err)
-				return
+				log.Fatalf("ERROR processing '%s': %s", rec.Key, err)
 			}
 
 			ctr++
